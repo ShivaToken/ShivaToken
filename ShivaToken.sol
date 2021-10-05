@@ -1228,7 +1228,7 @@ contract SHIVA is ERC20, Ownable {
 
     address public deadWallet = 0x000000000000000000000000000000000000dEaD;
     // Max transfer amount rate in basis points. (default is 0.005% of total supply)
-    uint16 public maxTransferAmountRate = 50
+    uint16 public maxTransferAmountRate = 50;
     uint256 public maxBuyAmount = 50000000 * (10**18);
     uint256 public maxSellAmount = 500000 * (10**18);
     address public immutable BTCB = address(0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c); //BTCB
@@ -1274,8 +1274,9 @@ contract SHIVA is ERC20, Ownable {
     event UpdateDividendTracker(address indexed newAddress, address indexed oldAddress);
     event UpdateUniswapV2Router(address indexed newAddress, address indexed oldAddress);
     event ExcludeFromFees(address indexed account, bool isExcluded);
-    event ExcludeFromAntiWhale(address indexed account, bool isExcluded);
     event ExcludeMultipleAccountsFromFees(address[] accounts, bool isExcluded);
+    event ExcludeFromAntiWhale(address indexed account, bool isExcluded);
+    event ExcludeFromLimitSwap(address indexed account, bool isExcluded);
     event SetAutomatedMarketMakerPair(address indexed pair, bool indexed value);
     event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
     event GasForProcessingUpdated(uint256 indexed newValue, uint256 indexed oldValue);
@@ -1307,11 +1308,11 @@ contract SHIVA is ERC20, Ownable {
             ) {				
                 require(amount <= maxTransferAmount(), "SHIVA::antiWhale: Transfer amount exceeds the maxTransferAmount");
                 //buying
-                if ( automatedMarketMakerPairs[from] ) {
+                if ( automatedMarketMakerPairs[sender] ) {
                     require(amount <= maxBuyAmount, "SHIVA::antiWhale: Buy amount exceeds the maxBuyAmount");
                 }
                 //selling
-                if ( automatedMarketMakerPairs[to] ) {
+                if ( automatedMarketMakerPairs[recipient] ) {
                     require(amount <= maxSellAmount, "SHIVA::antiWhale: Sell amount exceeds the maxSellAmount");
                 }
             }
@@ -1404,16 +1405,21 @@ contract SHIVA is ERC20, Ownable {
         emit ExcludeFromFees(account, excluded);
     }
 
-    function setExcludedFromAntiWhale(address _account, bool _excluded) public onlyOwner {
-        _excludedFromAntiWhale[_account] = _excluded;
-        emit ExcludeFromAntiWhale(_account, _excluded);
-    }
-
     function excludeMultipleAccountsFromFees(address[] calldata accounts, bool excluded) public onlyOwner {
         for(uint256 i = 0; i < accounts.length; i++) {
             _isExcludedFromFees[accounts[i]] = excluded;
         }
         emit ExcludeMultipleAccountsFromFees(accounts, excluded);
+    }
+
+    function setExcludedFromAntiWhale(address accounts, bool excluded) public onlyOwner {
+        _excludedFromAntiWhale[accounts] = excluded;
+        emit ExcludeFromAntiWhale(accounts, excluded);
+    }
+
+    function setExcludedFromLimitSwap(address accounts, bool excluded) public onlyOwner {
+        _excludedLimitSwap[accounts] = excluded;
+        emit ExcludeFromLimitSwap(accounts, excluded);
     }
 
     function updateMaxTransferAmountRate(uint16 _maxTransferAmountRate) public onlyOwner {
