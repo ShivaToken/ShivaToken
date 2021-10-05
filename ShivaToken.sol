@@ -1240,6 +1240,11 @@ contract SHIVA is ERC20, Ownable {
     mapping(address => bool) public _isBlacklisted;
     mapping(address => bool) private _excludedFromAntiWhale;
     mapping(address => bool) private _excludedLimitSwap;
+    // exlcude from fees and max transaction amount
+    mapping (address => bool) private _isExcludedFromFees;
+    // store addresses that a automatic market maker pairs. Any transfer *to* these addresses
+    // could be subject to a maximum transfer amount
+    mapping (address => bool) public automatedMarketMakerPairs;
 
     uint256 public BTCBRewardsFee = 10;
     uint256 public liquidityFee = 3;
@@ -1253,11 +1258,6 @@ contract SHIVA is ERC20, Ownable {
 
     // use by default 300,000 gas to process auto-claiming dividends
     uint256 public gasForProcessing = 300000;
-    // exlcude from fees and max transaction amount
-    mapping (address => bool) private _isExcludedFromFees;
-    // store addresses that a automatic market maker pairs. Any transfer *to* these addresses
-    // could be subject to a maximum transfer amount
-    mapping (address => bool) public automatedMarketMakerPairs;
 	// limit swap enabled
     bool public limitSwap = true;
     // swap, liquify, dividend disabled
@@ -1286,7 +1286,7 @@ contract SHIVA is ERC20, Ownable {
     event SendDividends(uint256 tokensSwapped, uint256 amount);
     event MaxTransferAmountRateUpdated(address indexed operator, uint256 previousRate, uint256 newRate);
     event MaxBuyAmountUpdated(address indexed operator, uint256 previousAmount, uint256 newAmount);
-    event updateMaxSellAmount(address indexed operator, uint256 previousAmount, uint256 newAmount);
+    event MaxSellAmountUpdated(address indexed operator, uint256 previousAmount, uint256 newAmount);
     event LimitSwapUpdated(address indexed operator, bool enabled);
     event TimeLimitSwapUpdated(address indexed operator, uint256 newTimeLimit);
 
@@ -1531,6 +1531,10 @@ contract SHIVA is ERC20, Ownable {
 
     function isExcludedFromAntiWhale(address account) public view returns (bool) {
         return _excludedFromAntiWhale[account];
+    }
+
+    function isExcludedFromLimitSwap(address account) public view returns (bool) {
+        return _excludedLimitSwap[account];
     }
 
     function withdrawableDividendOf(address account) public view returns(uint256) {
