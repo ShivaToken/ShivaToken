@@ -2,7 +2,7 @@
                                                                                
 
 /* IERC20.sol */
-pragma solidity ^0.6.2;
+pragma solidity ^0.6.12;
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
@@ -1067,7 +1067,7 @@ contract DividendPayingToken is ERC20, Ownable, DividendPayingTokenInterface, Di
   using SafeMathUint for uint256;
   using SafeMathInt for int256;
 
-  address public immutable BTCB = address(0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c); //BTCB
+  address public constant BTCB = address(0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c); //BTCB
   // for tesnet: 0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8
   // for mainnet: 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c
 
@@ -1172,7 +1172,7 @@ contract DividendPayingToken is ERC20, Ownable, DividendPayingTokenInterface, Di
   /// @param to The address to transfer to.
   /// @param value The amount to be transferred.
   function _transfer(address from, address to, uint256 value) internal virtual override {
-    require(false);
+    revert();
 
     int256 _magCorrection = magnifiedDividendPerShare.mul(value).toInt256Safe();
     magnifiedDividendCorrections[from] = magnifiedDividendCorrections[from].add(_magCorrection);
@@ -1228,23 +1228,17 @@ contract SHIVA is ERC20, Ownable {
 
     address public deadWallet = 0x000000000000000000000000000000000000dEaD;
     // Max transfer amount rate in basis points. (default is 0.005% of total supply)
-    uint16 public maxTransferAmountRate = 50;
-    uint256 public maxBuyAmount = 50000000 * (10**18);
-    uint256 public maxSellAmount = 500000 * (10**18);
-    address public immutable BTCB = address(0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c); //BTCB
+    uint16 public maxTransferAmountRate = 10000;
+    // Max Sale amount rate in basis points. (default is 0.1% of total supply)
+    uint256 public maxSaleAmountRate = 1000;
+    address public constant BTCB = address(0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c); //BTCB
     //testnet: 0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8
     //mainnet: 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c
-    uint256 public swapTokensAtAmount = 20000000 * (10**18);
-    uint256 public BuyBackAtAmount = 3 * (10**18);
+    uint256 public swapTokensAtAmount = 20000000 ether;
+    uint256 public BuyBackAtAmount = 1 * ether;
 
-    mapping(address => bool) public _isBlacklisted;
     mapping(address => bool) private _excludedFromAntiWhale;
     mapping(address => bool) private _excludedLimitSwap;
-    // exlcude from fees and max transaction amount
-    mapping (address => bool) private _isExcludedFromFees;
-    // store addresses that a automatic market maker pairs. Any transfer *to* these addresses
-    // could be subject to a maximum transfer amount
-    mapping (address => bool) public automatedMarketMakerPairs;
 
     uint256 public BTCBRewardsFee = 10;
     uint256 public liquidityFee = 3;
@@ -1258,27 +1252,28 @@ contract SHIVA is ERC20, Ownable {
 
     // use by default 300,000 gas to process auto-claiming dividends
     uint256 public gasForProcessing = 300000;
+    // exlcude from fees and max transaction amount
+    mapping (address => bool) private _isExcludedFromFees;
+    // store addresses that a automatic market maker pairs. Any transfer *to* these addresses
+    // could be subject to a maximum transfer amount
+    mapping (address => bool) public automatedMarketMakerPairs;
 	// limit swap enabled
     bool public limitSwap = true;
     // swap, liquify, dividend disabled
     bool public swapAndLiquifyDividendEnabled = false;
-    // to control selling
-    bool public selling;
-    // to control buying
-    bool public buying;
+    // swap start block
+    uint256 swapStartblock = 91651040;
 	// Minimum time between 2 swap of an user (by the number of blocks)
 	uint256 public timeLimitSwap = 100;
     // Info of UserInfo.
 	mapping(address => uint256) private _userInfo;
 
-    event UpdateDividendTracker(address indexed newAddress, address indexed oldAddress);
-    event UpdateUniswapV2Router(address indexed newAddress, address indexed oldAddress);
     event ExcludeFromFees(address indexed account, bool isExcluded);
-    event ExcludeMultipleAccountsFromFees(address[] accounts, bool isExcluded);
     event ExcludeFromAntiWhale(address indexed account, bool isExcluded);
     event ExcludeFromLimitSwap(address indexed account, bool isExcluded);
+    event ExcludeMultipleAccountsFromFees(address[] accounts, bool isExcluded);
     event SetAutomatedMarketMakerPair(address indexed pair, bool indexed value);
-    event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
+    event MarketingWalletUpdated(address indexed operator, address indexed oldMarketingWallet, address indexed newMarketingWallet);
     event GasForProcessingUpdated(uint256 indexed newValue, uint256 indexed oldValue);
     event SwapAndLiquify(uint256 tokensSwapped, uint256 ethReceived, uint256 tokensIntoLiqudity);
     event SwapAndLiquifyDividendEnabledUpdated(address indexed operator, bool enabled);
@@ -1286,10 +1281,15 @@ contract SHIVA is ERC20, Ownable {
     event SwapTokensForBuyback(uint256 ethReceived, uint256 currentAmountforBuyback);
     event SendDividends(uint256 tokensSwapped, uint256 amount);
     event MaxTransferAmountRateUpdated(address indexed operator, uint256 previousRate, uint256 newRate);
-    event MaxBuyAmountUpdated(address indexed operator, uint256 previousAmount, uint256 newAmount);
-    event MaxSellAmountUpdated(address indexed operator, uint256 previousAmount, uint256 newAmount);
+    event MaxSaleAmountRateUpdated(address indexed operator, uint256 previousRate, uint256 newRate);
     event LimitSwapUpdated(address indexed operator, bool enabled);
     event TimeLimitSwapUpdated(address indexed operator, uint256 newTimeLimit);
+    event SwapStartBlockUpdated(address indexed operator, uint256 oldSwapstartblock, uint256 newSwapstartblock);
+    event BTCBRewardsFeeUpdated(address indexed operator, uint256 oldBTCBRewardsfee, uint256 newBTCBRewardsfee);
+    event LiquidityFeeUpdated(address indexed operator, uint256 oldLiquidityfee, uint256 newLiquidityfee);
+    event MarketingFeeUpdated(address indexed operator, uint256 oldMarketingfee, uint256 newBTCBRewardsfee);
+    event ShivaTokensWithdrawn(address indexed operator, address indexed recipient, uint256 amount);
+    event BNBWithdrawn(address indexed operator, address indexed recipient, uint256 amount);
 
     event ProcessedDividendTracker(
     	uint256 iterations,
@@ -1307,13 +1307,9 @@ contract SHIVA is ERC20, Ownable {
                 && _excludedFromAntiWhale[recipient] == false
             ) {				
                 require(amount <= maxTransferAmount(), "SHIVA::antiWhale: Transfer amount exceeds the maxTransferAmount");
-                //buying
-                if ( automatedMarketMakerPairs[sender] ) {
-                    require(amount <= maxBuyAmount, "SHIVA::antiWhale: Buy amount exceeds the maxBuyAmount");
-                }
-                //selling
-                if ( automatedMarketMakerPairs[recipient] ) {
-                    require(amount <= maxSellAmount, "SHIVA::antiWhale: Sell amount exceeds the maxSellAmount");
+                //sale
+                if ( automatedMarketMakerPairs[sender] || automatedMarketMakerPairs[recipient]) {
+                    require(amount <= maxSaleAmount(), "SHIVA::antiWhale: Buy amount exceeds the maxBuyAmount");
                 }
             }
         }
@@ -1372,129 +1368,100 @@ contract SHIVA is ERC20, Ownable {
 
   	}
 
-    function updateDividendTracker(address newAddress) public onlyOwner {
-        require(newAddress != address(dividendTracker), "SHIVA: The dividend tracker already has that address");
-
-        SHIVADividendTracker newDividendTracker = SHIVADividendTracker(payable(newAddress));
-
-        require(newDividendTracker.owner() == address(this), "SHIVA: The new dividend tracker must be owned by the SHIVA token contract");
-
-        newDividendTracker.excludeFromDividends(address(newDividendTracker));
-        newDividendTracker.excludeFromDividends(address(this));
-        newDividendTracker.excludeFromDividends(owner());
-        newDividendTracker.excludeFromDividends(address(uniswapV2Router));
-
-        emit UpdateDividendTracker(newAddress, address(dividendTracker));
-
-        dividendTracker = newDividendTracker;
-    }
-
-    function updateUniswapV2Router(address newAddress) public onlyOwner {
-        require(newAddress != address(uniswapV2Router), "SHIVA: The router already has that address");
-        emit UpdateUniswapV2Router(newAddress, address(uniswapV2Router));
-        uniswapV2Router = IUniswapV2Router02(newAddress);
-        address _uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory())
-            .createPair(address(this), uniswapV2Router.WETH());
-        uniswapV2Pair = _uniswapV2Pair;
-    }
-
     function excludeFromFees(address account, bool excluded) public onlyOwner {
-        require(_isExcludedFromFees[account] != excluded, "SHIVA: Account is already the value of 'excluded'");
+        require(_isExcludedFromFees[account] != excluded, "SHIVA::excludeFromFees: Account is already the value of 'excluded'");
         _isExcludedFromFees[account] = excluded;
 
         emit ExcludeFromFees(account, excluded);
     }
 
-    function excludeMultipleAccountsFromFees(address[] calldata accounts, bool excluded) public onlyOwner {
+    function setExcludedFromAntiWhale(address account, bool excluded) public onlyOwner {
+        _excludedFromAntiWhale[account] = excluded;
+        emit ExcludeFromAntiWhale(account, excluded);
+    }
+
+    function setExcludedFromLimitSwap(address account, bool excluded) public onlyOwner {
+        _excludedLimitSwap[account] = excluded;
+        emit ExcludeFromLimitSwap(account, excluded);
+    }
+
+    function excludeMultipleAccountsFromFees(address[] calldata accounts, bool excluded) external onlyOwner {
         for(uint256 i = 0; i < accounts.length; i++) {
             _isExcludedFromFees[accounts[i]] = excluded;
         }
         emit ExcludeMultipleAccountsFromFees(accounts, excluded);
     }
 
-    function setExcludedFromAntiWhale(address accounts, bool excluded) public onlyOwner {
-        _excludedFromAntiWhale[accounts] = excluded;
-        emit ExcludeFromAntiWhale(accounts, excluded);
-    }
-
-    function setExcludedFromLimitSwap(address accounts, bool excluded) public onlyOwner {
-        _excludedLimitSwap[accounts] = excluded;
-        emit ExcludeFromLimitSwap(accounts, excluded);
-    }
-
-    function updateMaxTransferAmountRate(uint16 _maxTransferAmountRate) public onlyOwner {
+    function updateMaxTransferAmountRate(uint16 _maxTransferAmountRate) external onlyOwner {
         require(_maxTransferAmountRate <= 1000000, "SHIVA::updateMaxTransferAmountRate: Max transfer amount rate must not exceed the maximum rate.");
+        require(_maxTransferAmountRate >= 10000, "SHIVA::updateMaxSaleAmountRate: Max transfer amount rate must not exceed the minimum rate.");
         emit MaxTransferAmountRateUpdated(msg.sender, maxTransferAmountRate, _maxTransferAmountRate);
         maxTransferAmountRate = _maxTransferAmountRate;
     }
 
-    function updateMaxBuyAmount(uint16 _maxBuyAmount) public onlyOwner {
-        require(_maxBuyAmount <= totalSupply(), "SHIVA::updateMaxBuyAmount: Max Buy amount must not exceed the total supply.");
-        emit MaxBuyAmountUpdated(msg.sender, maxBuyAmount, _maxBuyAmount);
-        maxBuyAmount = _maxBuyAmount;
+    function updateMaxSaleAmountRate(uint16 _maxSaleAmountRate) external onlyOwner {
+        require(_maxSaleAmountRate <= 1000000, "SHIVA::updateMaxSaleAmountRate: Max sale amount rate must not exceed the maximum rate.");
+        require(_maxSaleAmountRate >= 1000, "SHIVA::updateMaxSaleAmountRate: Max sale amount rate must not exceed the minimum rate.");
+        emit MaxSaleAmountRateUpdated(msg.sender, maxSaleAmountRate, _maxSaleAmountRate);
+        maxSaleAmountRate = _maxSaleAmountRate;
     }
 
-    function updateMaxSellAmount(uint16 _maxSellAmount) public onlyOwner {
-        require(_maxSellAmount <= totalSupply(), "SHIVA::updateMaxSellAmount: Max Sell amount must not exceed the total supply.");
-        emit MaxSellAmountUpdated(msg.sender, maxSellAmount, _maxSellAmount);
-        maxSellAmount = _maxSellAmount;
-    }
-
-    function UpdateLimitSwap(bool value) public onlyOwner {
+    function updateLimitSwap(bool value) external onlyOwner {
         emit LimitSwapUpdated(msg.sender, value);
         limitSwap = value;
     }
 
-    function updateSwapAndLiquifyDividendEnabled(bool value) public onlyOwner {
+    function updateSwapAndLiquifyDividendEnabled(bool value) external onlyOwner {
         emit SwapAndLiquifyDividendEnabledUpdated(msg.sender, value);
         swapAndLiquifyDividendEnabled = value;
     }
 
-    function UpdateTimeLimitSwap(uint256 _timeLimitSwap) public onlyOwner {
-		require(_timeLimitSwap <= 28800, "SHIVA::UpdateTimeLimitSwap: Too long.");
+    function updateLimitSwapTime(uint256 _timeLimitSwap) external onlyOwner {
+		require(_timeLimitSwap <= 28800, "SHIVA::updateLimitSwapTime: Too long.");
         emit TimeLimitSwapUpdated(msg.sender, _timeLimitSwap);
         timeLimitSwap = _timeLimitSwap;
     }
 
-    function setSelling(bool value) public onlyOwner{
-        selling = value;
-    }
-    
-    function setBuying(bool value) public onlyOwner{
-        buying = value;
+    function updateSwapStartBlock(uint256 _swapStartblock) external onlyOwner {
+        require(block.number < swapStartblock, "SHIVA::updateSwapStartBlock: Trading is started already.");
+        emit SwapStartBlockUpdated(msg.sender, swapStartblock, _swapStartblock);
+        swapStartblock = _swapStartblock;
     }
 
     function setMarketingWallet(address payable wallet) external onlyOwner{
+        emit MarketingWalletUpdated(msg.sender, _marketingWalletAddress, wallet);
         _marketingWalletAddress = wallet;
     }
 
     function setBTCBRewardsFee(uint256 value) external onlyOwner{
+        totalFees = value.add(liquidityFee).add(marketingFee);
+        require(totalFees <= 20, "SHIVA::setBTCBRewardsFee: Too high Fees");
+        emit BTCBRewardsFeeUpdated(msg.sender, BTCBRewardsFee, value);
         BTCBRewardsFee = value;
-        totalFees = BTCBRewardsFee.add(liquidityFee).add(marketingFee);
     }
 
-    function setLiquiditFee(uint256 value) external onlyOwner{
+    function setLiquidityFee(uint256 value) external onlyOwner{
+        totalFees = value.add(BTCBRewardsFee).add(marketingFee);
+        require(totalFees <= 20, "SHIVA::setBTCBRewardsFee: Too high Fees");
+        emit LiquidityFeeUpdated(msg.sender, liquidityFee, value);
         liquidityFee = value;
-        totalFees = BTCBRewardsFee.add(liquidityFee).add(marketingFee);
     }
 
     function setMarketingFee(uint256 value) external onlyOwner{
+        totalFees = value.add(BTCBRewardsFee).add(liquidityFee);
+        require(totalFees <= 20, "SHIVA::setBTCBRewardsFee: Too high Fees");
+        emit MarketingFeeUpdated(msg.sender, marketingFee, value);
         marketingFee = value;
-        totalFees = BTCBRewardsFee.add(liquidityFee).add(marketingFee);
     }
 
     function setAutomatedMarketMakerPair(address pair, bool value) public onlyOwner {
-        require(pair != uniswapV2Pair, "SHIVA: The PancakeSwap pair cannot be removed from automatedMarketMakerPairs");
+        require(pair != uniswapV2Pair, "SHIVA::setAutomatedMarketMakerPair: The PancakeSwap pair cannot be removed from automatedMarketMakerPairs");
 
         _setAutomatedMarketMakerPair(pair, value);
     }
-    
-    function blacklistAddress(address account, bool value) external onlyOwner{
-        _isBlacklisted[account] = value;
-    }
 
     function _setAutomatedMarketMakerPair(address pair, bool value) private {
-        require(automatedMarketMakerPairs[pair] != value, "SHIVA: Automated market maker pair is already set to that value");
+        require(automatedMarketMakerPairs[pair] != value, "SHIVA::_setAutomatedMarketMakerPair: Automated market maker pair is already set to that value");
         automatedMarketMakerPairs[pair] = value;
 
         if(value) {
@@ -1504,9 +1471,9 @@ contract SHIVA is ERC20, Ownable {
         emit SetAutomatedMarketMakerPair(pair, value);
     }
 
-    function updateGasForProcessing(uint256 newValue) public onlyOwner {
-        require(newValue >= 200000 && newValue <= 500000, "SHIVA: gasForProcessing must be between 200,000 and 500,000");
-        require(newValue != gasForProcessing, "SHIVA: Cannot update gasForProcessing to same value");
+    function updateGasForProcessing(uint256 newValue) external onlyOwner {
+        require(newValue >= 200000 && newValue <= 500000, "SHIVA::updateGasForProcessing: gasForProcessing must be between 200,000 and 500,000");
+        require(newValue != gasForProcessing, "SHIVA::updateGasForProcessing: Cannot update gasForProcessing to same value");
         emit GasForProcessingUpdated(newValue, gasForProcessing);
         gasForProcessing = newValue;
     }
@@ -1523,6 +1490,10 @@ contract SHIVA is ERC20, Ownable {
         return totalSupply().mul(maxTransferAmountRate).div(1000000);
     }
 
+    function maxSaleAmount() public view returns (uint256) {
+        return totalSupply().mul(maxSaleAmountRate).div(1000000);
+    }
+
     function getClaimWait() external view returns(uint256) {
         return dividendTracker.claimWait();
     }
@@ -1531,23 +1502,23 @@ contract SHIVA is ERC20, Ownable {
         return dividendTracker.totalDividendsDistributed();
     }
 
-    function isExcludedFromFees(address account) public view returns(bool) {
+    function isExcludedFromFees(address account) external view returns(bool) {
         return _isExcludedFromFees[account];
     }
 
-    function isExcludedFromAntiWhale(address account) public view returns (bool) {
+    function isExcludedFromAntiWhale(address account) external view returns (bool) {
         return _excludedFromAntiWhale[account];
     }
 
-    function isExcludedFromLimitSwap(address account) public view returns (bool) {
+    function isExcludedFromLimitSwap(address account) external view returns (bool) {
         return _excludedLimitSwap[account];
     }
 
-    function withdrawableDividendOf(address account) public view returns(uint256) {
+    function withdrawableDividendOf(address account) external view returns(uint256) {
     	return dividendTracker.withdrawableDividendOf(account);
   	}
 
-	function dividendTokenBalanceOf(address account) public view returns (uint256) {
+	function dividendTokenBalanceOf(address account) external view returns (uint256) {
 		return dividendTracker.balanceOf(account);
 	}
 
@@ -1598,7 +1569,6 @@ contract SHIVA is ERC20, Ownable {
         return dividendTracker.getNumberOfTokenHolders();
     }
 
-
     function _transfer(
         address from,
         address to,
@@ -1606,14 +1576,14 @@ contract SHIVA is ERC20, Ownable {
     ) internal virtual override antiWhale(from, to, amount) {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
-        require(!_isBlacklisted[from] && !_isBlacklisted[to], 'Blacklisted address');
 
-        if(!selling && from != owner()){
-            require(!automatedMarketMakerPairs[to], "Selling disabled");
-        }
-
-        if(!buying && to != owner()){
-            require(!automatedMarketMakerPairs[from], "Buying disabled");
+        if( block.number < swapStartblock ){
+            if(from != owner()) {
+                require(!automatedMarketMakerPairs[to], "Trading is not started yet");
+            }
+            if(to != owner()) {
+                require(!automatedMarketMakerPairs[from], "Trading is not started yet");
+            }
         }
 
         if(amount == 0) {
@@ -1632,10 +1602,9 @@ contract SHIVA is ERC20, Ownable {
             uint256 lastSwap = _userInfo[userAddress];
 			uint256 checkLastSwap = block.number.sub(lastSwap);
             if(_excludedLimitSwap[userAddress] == false){
-                require(checkLastSwap >= timeLimitSwap, "SHIVA:: Trade Too fast");					
-            } else {
-                _userInfo[userAddress] = block.number;
-            }
+                require(checkLastSwap >= timeLimitSwap, "SHIVA:: Trade Too fast");
+            }				
+            _userInfo[userAddress] = block.number;
         }
 
 		uint256 contractTokenBalance = balanceOf(address(this)) ;
@@ -1666,7 +1635,6 @@ contract SHIVA is ERC20, Ownable {
 
             swapping = false;
         }
-
 
         bool takeFee = !swapping;
 
@@ -1709,7 +1677,9 @@ contract SHIVA is ERC20, Ownable {
 
         swapTokensForEth(tokens);
         uint256 newBalance = (address(this).balance).sub(initialBNBBalance);
-        payable(_marketingWalletAddress).transfer(newBalance);
+        if(newBalance > 0) {
+            payable(_marketingWalletAddress).transfer(newBalance);
+        }
     }
 
     function swapTokensForBuyback(uint256 tokens) private {
@@ -1831,30 +1801,31 @@ contract SHIVA is ERC20, Ownable {
     function swapAndSendDividends(uint256 tokens) private{
         swapTokensForBtcb(tokens);
         uint256 dividends = IERC20(BTCB).balanceOf(address(this));
-        bool success = IERC20(BTCB).transfer(address(dividendTracker), dividends);
-
-        if (success) {
+        try IERC20(BTCB).transfer(address(dividendTracker), dividends){
             dividendTracker.distributeBTCBDividends(dividends);
             emit SendDividends(tokens, dividends);
         }
+        catch {
+            revert("SHIVA::BTCB transfer reverted because of insufficient BTCB balance");
+        }
     }
 
-    function withdrawShiva(address toAddress, uint256 amount) public onlyOwner {
+    function withdrawShiva(address toAddress, uint256 amount) external onlyOwner {
         uint256 maxblance = balanceOf(address(this));
-        if(maxblance > amount) {
-            super._transfer(address(this), toAddress, amount);
-        } else {
-            super._transfer(address(this), toAddress, maxblance);
+        if(maxblance <= amount) {
+            amount = maxblance;
         }
+        super._transfer(address(this), toAddress, amount);
+        emit ShivaTokensWithdrawn(msg.sender, toAddress, amount);
     }
     
-    function withdrawBNB(address toAddress, uint256 amount) public onlyOwner {
+    function withdrawBNB(address toAddress, uint256 amount) external onlyOwner {
         uint256 bnbblance = address(this).balance;
-        if(bnbblance > amount) {
-            payable(toAddress).transfer(amount);
-        } else {
-            payable(toAddress).transfer(bnbblance);
+        if(bnbblance <= amount) {
+            amount = bnbblance;
         }
+        payable(toAddress).transfer(bnbblance);
+        emit BNBWithdrawn(msg.sender, toAddress, amount);
     }
 }
 
@@ -1877,18 +1848,19 @@ contract SHIVADividendTracker is Ownable, DividendPayingToken {
     event ClaimWaitUpdated(uint256 indexed newValue, uint256 indexed oldValue);
     event MinimumTokenBalanceForDividendsUpdated(uint256 indexed newValue, uint256 indexed oldValue);
     event Claim(address indexed account, uint256 amount, bool indexed automatic);
+    event Processed(uint256 from, uint256 to);
 
-    constructor() public DividendPayingToken("SHIVA_Dividen_Tracker", "SHIVA_Dividend_Tracker") {
+    constructor() public DividendPayingToken("SHIVA_Dividen_Tracker", "SHIVA_DTker") {
     	claimWait = 21600;
         minimumTokenBalanceForDividends = 100000 * (10**18); //must hold 100000+ tokens
     }
 
     function _transfer(address, address, uint256) internal override {
-        require(false, "SHIVA_Dividend_Tracker: No transfers allowed");
+        revert("SHIVA_Dividend_Tracker: No transfers allowed");
     }
 
     function withdrawDividend() public override {
-        require(false, "SHIVA_Dividend_Tracker: withdrawDividend disabled. Use the 'claim' function on the main SHIVA contract.");
+        revert("SHIVA_Dividend_Tracker: withdrawDividend disabled. Use the 'claim' function on the main SHIVA contract.");
     }
 
     function excludeFromDividends(address account) external onlyOwner {
@@ -1909,7 +1881,7 @@ contract SHIVADividendTracker is Ownable, DividendPayingToken {
     }
 
     function updateMinimumTokenBalanceForDividends(uint256 newMinimumTokenBalanceForDividends) external onlyOwner {
-        require(newMinimumTokenBalanceForDividends >= 100 * (10**18) && newMinimumTokenBalanceForDividends <= totalSupply().div(2), "SHIVA_Dividend_Tracker: MinimumTokenBalanceForDividends must be updated to between 100 and half of totalsupply");
+        require(newMinimumTokenBalanceForDividends >= 100 * (10**18) && newMinimumTokenBalanceForDividends <= 10000000 * (10**18), "SHIVA_Dividend_Tracker: MinimumTokenBalanceForDividends must be updated to between 100 and 10000000");
         require(newMinimumTokenBalanceForDividends != minimumTokenBalanceForDividends, "SHIVA_Dividend_Tracker: Cannot update MinimumTokenBalanceForDividends to same value");
         emit MinimumTokenBalanceForDividendsUpdated(newMinimumTokenBalanceForDividends, minimumTokenBalanceForDividends);
         minimumTokenBalanceForDividends = newMinimumTokenBalanceForDividends;
@@ -1944,12 +1916,12 @@ contract SHIVADividendTracker is Ownable, DividendPayingToken {
                 iterationsUntilProcessed = index.sub(int256(lastProcessedIndex));
             }
             else {
-                uint256 processesUntilEndOfArray = tokenHoldersMap.keys.length > lastProcessedIndex ?
+                uint256 processesUntilbeginOfArray = tokenHoldersMap.keys.length > lastProcessedIndex ?
                                                         tokenHoldersMap.keys.length.sub(lastProcessedIndex) :
                                                         0;
 
 
-                iterationsUntilProcessed = index.add(int256(processesUntilEndOfArray));
+                iterationsUntilProcessed = index.add(int256(processesUntilbeginOfArray));
             }
         }
 
@@ -1969,7 +1941,7 @@ contract SHIVADividendTracker is Ownable, DividendPayingToken {
     }
 
     function getAccountAtIndex(uint256 index)
-        public view returns (
+        external view returns (
             address,
             int256,
             int256,
@@ -2012,7 +1984,7 @@ contract SHIVADividendTracker is Ownable, DividendPayingToken {
     	processAccount(account, true);
     }
 
-    function process(uint256 gas) public returns (uint256, uint256, uint256) {
+    function process(uint256 gas) external returns (uint256, uint256, uint256) {
     	uint256 numberOfTokenHolders = tokenHoldersMap.keys.length;
 
     	if(numberOfTokenHolders == 0) {
@@ -2053,7 +2025,7 @@ contract SHIVADividendTracker is Ownable, DividendPayingToken {
 
     		gasLeft = newGasLeft;
     	}
-
+        emit Processed(lastProcessedIndex, _lastProcessedIndex);
     	lastProcessedIndex = _lastProcessedIndex;
 
     	return (iterations, claims, lastProcessedIndex);
