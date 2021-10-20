@@ -1172,7 +1172,7 @@ contract DividendPayingToken is ERC20, Ownable, DividendPayingTokenInterface, Di
   /// @param to The address to transfer to.
   /// @param value The amount to be transferred.
   function _transfer(address from, address to, uint256 value) internal virtual override {
-    revert();
+    require(false);
 
     int256 _magCorrection = magnifiedDividendPerShare.mul(value).toInt256Safe();
     magnifiedDividendCorrections[from] = magnifiedDividendCorrections[from].add(_magCorrection);
@@ -1235,7 +1235,7 @@ contract SHIVA is ERC20, Ownable {
     //testnet: 0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8
     //mainnet: 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c
     uint256 public swapTokensAtAmount = 20000000 ether;
-    uint256 public BuyBackAtAmount = 1 * ether;
+    uint256 public BuyBackAtAmount = 1 ether;
 
     mapping(address => bool) private _excludedFromAntiWhale;
     mapping(address => bool) private _excludedLimitSwap;
@@ -1262,7 +1262,7 @@ contract SHIVA is ERC20, Ownable {
     // swap, liquify, dividend disabled
     bool public swapAndLiquifyDividendEnabled = false;
     // swap start block
-    uint256 swapStartblock = 91651040;
+    uint256 swapStartblock = 99999999;
 	// Minimum time between 2 swap of an user (by the number of blocks)
 	uint256 public timeLimitSwap = 100;
     // Info of UserInfo.
@@ -1321,7 +1321,7 @@ contract SHIVA is ERC20, Ownable {
     	dividendTracker = new SHIVADividendTracker();
 
     	IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E); 
-        // for testnet: 0xD99D1c33F9fC3444f8101754aBC46c52416550D1
+        // for testnet: 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
         // for mainnet: 0x10ED43C718714eb63d5aA57B78B54704E256024E
         // Create a uniswap pair for this new token
         address _uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
@@ -1429,7 +1429,7 @@ contract SHIVA is ERC20, Ownable {
     }
 
     function setMarketingWallet(address payable wallet) external onlyOwner{
-        require(wallet != address(0), "SHIVA::setMarketingWallet: Please use vaild payable address.")
+        require(wallet != address(0), "SHIVA::setMarketingWallet: Please use vaild payable address.");
         emit MarketingWalletUpdated(msg.sender, _marketingWalletAddress, wallet);
         _marketingWalletAddress = wallet;
     }
