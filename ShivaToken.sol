@@ -1309,7 +1309,7 @@ contract SHIVA is ERC20, Ownable {
                 require(amount <= maxTransferAmount(), "SHIVA::antiWhale: Transfer amount exceeds the maxTransferAmount");
                 //sale
                 if ( automatedMarketMakerPairs[sender] || automatedMarketMakerPairs[recipient]) {
-                    require(amount <= maxSaleAmount(), "SHIVA::antiWhale: Buy amount exceeds the maxBuyAmount");
+                    require(amount <= maxSaleAmount(), "SHIVA::antiWhale: Sale amount exceeds the maxSaleAmount");
                 }
             }
         }
@@ -1429,6 +1429,7 @@ contract SHIVA is ERC20, Ownable {
     }
 
     function setMarketingWallet(address payable wallet) external onlyOwner{
+        require(wallet != address(0), "SHIVA::setMarketingWallet: Please use vaild payable address.")
         emit MarketingWalletUpdated(msg.sender, _marketingWalletAddress, wallet);
         _marketingWalletAddress = wallet;
     }
@@ -1677,9 +1678,7 @@ contract SHIVA is ERC20, Ownable {
 
         swapTokensForEth(tokens);
         uint256 newBalance = (address(this).balance).sub(initialBNBBalance);
-        if(newBalance > 0) {
-            payable(_marketingWalletAddress).transfer(newBalance);
-        }
+        payable(_marketingWalletAddress).transfer(newBalance);
     }
 
     function swapTokensForBuyback(uint256 tokens) private {
@@ -1824,7 +1823,7 @@ contract SHIVA is ERC20, Ownable {
         if(bnbblance <= amount) {
             amount = bnbblance;
         }
-        payable(toAddress).transfer(bnbblance);
+        payable(toAddress).transfer(amount);
         emit BNBWithdrawn(msg.sender, toAddress, amount);
     }
 }
