@@ -1214,10 +1214,254 @@ contract DividendPayingToken is ERC20, Ownable, DividendPayingTokenInterface, Di
   }
 }
 
+library Address {
+    /**
+     * @dev Returns true if `account` is a contract.
+     *
+     * [IMPORTANT]
+     * ====
+     * It is unsafe to assume that an address for which this function returns
+     * false is an externally-owned account (EOA) and not a contract.
+     *
+     * Among others, `isContract` will return false for the following
+     * types of addresses:
+     *
+     *  - an externally-owned account
+     *  - a contract in construction
+     *  - an address where a contract will be created
+     *  - an address where a contract lived, but was destroyed
+     * ====
+     */
+    function isContract(address account) internal view returns (bool) {
+        // This method relies on extcodesize, which returns 0 for contracts in
+        // construction, since the code is only stored at the end of the
+        // constructor execution.
+
+        uint256 size;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { size := extcodesize(account) }
+        return size > 0;
+    }
+
+    /**
+     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to
+     * `recipient`, forwarding all available gas and reverting on errors.
+     *
+     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost
+     * of certain opcodes, possibly making contracts go over the 2300 gas limit
+     * imposed by `transfer`, making them unable to receive funds via
+     * `transfer`. {sendValue} removes this limitation.
+     *
+     * https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/[Learn more].
+     *
+     * IMPORTANT: because control is transferred to `recipient`, care must be
+     * taken to not create reentrancy vulnerabilities. Consider using
+     * {ReentrancyGuard} or the
+     * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
+     */
+    function sendValue(address payable recipient, uint256 amount) internal {
+        require(address(this).balance >= amount, "Address: insufficient balance");
+
+        // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
+        (bool success, ) = recipient.call{ value: amount }("");
+        require(success, "Address: unable to send value, recipient may have reverted");
+    }
+
+    /**
+     * @dev Performs a Solidity function call using a low level `call`. A
+     * plain`call` is an unsafe replacement for a function call: use this
+     * function instead.
+     *
+     * If `target` reverts with a revert reason, it is bubbled up by this
+     * function (like regular Solidity function calls).
+     *
+     * Returns the raw returned data. To convert to the expected return value,
+     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].
+     *
+     * Requirements:
+     *
+     * - `target` must be a contract.
+     * - calling `target` with `data` must not revert.
+     *
+     * _Available since v3.1._
+     */
+    function functionCall(address target, bytes memory data) internal returns (bytes memory) {
+      return functionCall(target, data, "Address: low-level call failed");
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with
+     * `errorMessage` as a fallback revert reason when `target` reverts.
+     *
+     * _Available since v3.1._
+     */
+    function functionCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
+        return functionCallWithValue(target, data, 0, errorMessage);
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but also transferring `value` wei to `target`.
+     *
+     * Requirements:
+     *
+     * - the calling contract must have an ETH balance of at least `value`.
+     * - the called Solidity function must be `payable`.
+     *
+     * _Available since v3.1._
+     */
+    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
+        return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but
+     * with `errorMessage` as a fallback revert reason when `target` reverts.
+     *
+     * _Available since v3.1._
+     */
+    function functionCallWithValue(address target, bytes memory data, uint256 value, string memory errorMessage) internal returns (bytes memory) {
+        require(address(this).balance >= value, "Address: insufficient balance for call");
+        require(isContract(target), "Address: call to non-contract");
+
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory returndata) = target.call{ value: value }(data);
+        return _verifyCallResult(success, returndata, errorMessage);
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but performing a static call.
+     *
+     * _Available since v3.3._
+     */
+    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
+        return functionStaticCall(target, data, "Address: low-level static call failed");
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
+     * but performing a static call.
+     *
+     * _Available since v3.3._
+     */
+    function functionStaticCall(address target, bytes memory data, string memory errorMessage) internal view returns (bytes memory) {
+        require(isContract(target), "Address: static call to non-contract");
+
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory returndata) = target.staticcall(data);
+        return _verifyCallResult(success, returndata, errorMessage);
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but performing a delegate call.
+     *
+     * _Available since v3.3._
+     */
+    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {
+        return functionDelegateCall(target, data, "Address: low-level delegate call failed");
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
+     * but performing a delegate call.
+     *
+     * _Available since v3.3._
+     */
+    function functionDelegateCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
+        require(isContract(target), "Address: delegate call to non-contract");
+
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory returndata) = target.delegatecall(data);
+        return _verifyCallResult(success, returndata, errorMessage);
+    }
+
+    function _verifyCallResult(bool success, bytes memory returndata, string memory errorMessage) private pure returns(bytes memory) {
+        if (success) {
+            return returndata;
+        } else {
+            // Look for revert reason and bubble it up if present
+            if (returndata.length > 0) {
+                // The easiest way to bubble the revert reason is using memory via assembly
+
+                // solhint-disable-next-line no-inline-assembly
+                assembly {
+                    let returndata_size := mload(returndata)
+                    revert(add(32, returndata), returndata_size)
+                }
+            } else {
+                revert(errorMessage);
+            }
+        }
+    }
+}
+
+// File: @openzeppelin/contracts/security/ReentrancyGuard.sol
+
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ */
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    constructor() public {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+
+        _;
+
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+}
 
 /* SHIVA.sol */
-contract SHIVA is ERC20, Ownable {
+contract SHIVA is ERC20, Ownable, ReentrancyGuard {
     using SafeMath for uint256;
+    using Address for address payable;
 
     IUniswapV2Router02 public uniswapV2Router;
     address public  uniswapV2Pair;
@@ -1226,16 +1470,16 @@ contract SHIVA is ERC20, Ownable {
 
     SHIVADividendTracker public dividendTracker;
 
-    address public deadWallet = 0x000000000000000000000000000000000000dEaD;
-    // Max transfer amount rate in basis points. (default is 0.005% of total supply)
-    uint16 public maxTransferAmountRate = 10000;
-    // Max Sale amount rate in basis points. (default is 0.1% of total supply)
+    address public constant deadWallet = 0x000000000000000000000000000000000000dEaD;
+    // Max transfer amount rate in basis points. (default is 0.1% of total supply)
+    uint256 public maxTransferAmountRate = 100000;
+    // Max Sale amount rate in basis points. (default is 0.001% of LP supply)
     uint256 public maxSaleAmountRate = 1000;
     address public constant BTCB = address(0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c); //BTCB
     //testnet: 0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8
     //mainnet: 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c
-    uint256 public swapTokensAtAmount = 20000000 ether;
-    uint256 public BuyBackAtAmount = 1 ether;
+    uint256 public constant swapTokensAtAmount = 20000000 ether;
+    uint256 public constant BuyBackAtAmount = 1 ether;
 
     mapping(address => bool) private _excludedFromAntiWhale;
     mapping(address => bool) private _excludedLimitSwap;
@@ -1243,7 +1487,7 @@ contract SHIVA is ERC20, Ownable {
     uint256 public BTCBRewardsFee = 10;
     uint256 public liquidityFee = 3;
     uint256 public marketingFee = 5;
-    uint256 public buybackFeeonSell = 5;
+    uint256 public constant buybackFeeonSell = 5;
 
     uint256 public BuybackAmount;
     uint256 public totalFees = BTCBRewardsFee.add(liquidityFee).add(marketingFee);
@@ -1392,7 +1636,7 @@ contract SHIVA is ERC20, Ownable {
         emit ExcludeMultipleAccountsFromFees(accounts, excluded);
     }
 
-    function updateMaxTransferAmountRate(uint16 _maxTransferAmountRate) external onlyOwner {
+    function updateMaxTransferAmountRate(uint256 _maxTransferAmountRate) external onlyOwner {
         require(_maxTransferAmountRate <= 1000000, "SHIVA::updateMaxTransferAmountRate: Max transfer amount rate must not exceed the maximum rate.");
         require(_maxTransferAmountRate >= 10000, "SHIVA::updateMaxSaleAmountRate: Max transfer amount rate must not exceed the minimum rate.");
         emit MaxTransferAmountRateUpdated(msg.sender, maxTransferAmountRate, _maxTransferAmountRate);
@@ -1430,6 +1674,12 @@ contract SHIVA is ERC20, Ownable {
 
     function setMarketingWallet(address payable wallet) external onlyOwner{
         require(wallet != address(0), "SHIVA::setMarketingWallet: Please use vaild payable address.");
+        excludeFromFees(_marketingWalletAddress, false);
+        _excludedFromAntiWhale[_marketingWalletAddress] = false;
+        _excludedLimitSwap[_marketingWalletAddress] = false;
+        excludeFromFees(wallet, true);
+        _excludedFromAntiWhale[wallet] = true;
+        _excludedLimitSwap[wallet] = true;
         emit MarketingWalletUpdated(msg.sender, _marketingWalletAddress, wallet);
         _marketingWalletAddress = wallet;
     }
@@ -1558,8 +1808,8 @@ contract SHIVA is ERC20, Ownable {
 		emit ProcessedDividendTracker(iterations, claims, lastProcessedIndex, false, gas, tx.origin);
     }
 
-    function claim() external {
-		dividendTracker.processAccount(msg.sender, false);
+    function claim() external returns(bool) {
+		return dividendTracker.processAccount(msg.sender, false);
     }
 
     function getLastProcessedIndex() external view returns(uint256) {
@@ -1574,7 +1824,7 @@ contract SHIVA is ERC20, Ownable {
         address from,
         address to,
         uint256 amount
-    ) internal virtual override antiWhale(from, to, amount) {
+    ) internal virtual override antiWhale(from, to, amount) nonReentrant {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
 
@@ -1631,7 +1881,7 @@ contract SHIVA is ERC20, Ownable {
             swapAndSendDividends(sellTokens);
 
             if(BuybackAmount >= BuyBackAtAmount){
-                BuybackAndBurn(BuybackAmount);
+                swapEthForTokens(BuybackAmount);
             }
 
             swapping = false;
@@ -1648,8 +1898,9 @@ contract SHIVA is ERC20, Ownable {
         	uint256 fees = amount.mul(totalFees).div(100);
         	if(automatedMarketMakerPairs[to]){
                 uint256 TokensforBuyback = amount.mul(buybackFeeonSell).div(100);
-        	    fees += TokensforBuyback;
+                super._transfer(from, address(this), TokensforBuyback);
                 swapTokensForBuyback(TokensforBuyback);
+                amount = amount.sub(TokensforBuyback);
         	}
         	amount = amount.sub(fees);
 
@@ -1678,7 +1929,7 @@ contract SHIVA is ERC20, Ownable {
 
         swapTokensForEth(tokens);
         uint256 newBalance = (address(this).balance).sub(initialBNBBalance);
-        payable(_marketingWalletAddress).transfer(newBalance);
+        payable(_marketingWalletAddress).sendValue(newBalance);
     }
 
     function swapTokensForBuyback(uint256 tokens) private {
@@ -1690,25 +1941,10 @@ contract SHIVA is ERC20, Ownable {
         emit SwapTokensForBuyback(newBalance, BuybackAmount);
     }
 
-    function BuybackAndBurn(uint256 value) private  {
-        uint256 initialTokenBalance = balanceOf(address(this));
-
-        swapEthForTokens(value);
-        uint256 newBalance = balanceOf(address(this)).sub(initialTokenBalance);        
-        super._transfer(address(this), deadWallet, newBalance);
-        emit BuybackAndburn(value, newBalance);
-        BuybackAmount = 0;
-    }
-
     function swapAndLiquify(uint256 tokens) private {
        // split the contract balance into halves
         uint256 half = tokens.div(2);
         uint256 otherHalf = tokens.sub(half);
-
-        // capture the contract's current ETH balance.
-        // this is so that we can capture exactly the amount of ETH that the
-        // swap creates, and not make the liquidity event include any ETH that
-        // has been manually sent to the contract
         uint256 initialBalance = address(this).balance;
 
         // swap tokens for ETH
@@ -1744,22 +1980,22 @@ contract SHIVA is ERC20, Ownable {
 
     }
 
-    function swapEthForTokens(uint256 tokenAmount) private {
+    function swapEthForTokens(uint256 amount) private {
 
         // generate the uniswap pair path of weth -> token
         address[] memory path = new address[](2);
         path[0] = uniswapV2Router.WETH();
         path[1] = address(this);        
 
-        _approve(address(this), address(uniswapV2Router), tokenAmount);
-
         // make the swap
-        uniswapV2Router.swapExactETHForTokensSupportingFeeOnTransferTokens(
-            tokenAmount,
+        uniswapV2Router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(
+            0,
             path,
-            address(this),
-            block.timestamp
+            deadWallet,
+            block.timestamp.add(300)
         );
+
+        BuybackAmount = 0;
     }
 
     function swapTokensForBtcb(uint256 tokenAmount) private {
@@ -1787,7 +2023,7 @@ contract SHIVA is ERC20, Ownable {
         _approve(address(this), address(uniswapV2Router), tokenAmount);
 
         // add the liquidity
-        uniswapV2Router.addLiquidityETH{value: ethAmount}(
+        (,,uint256 liquidity) = uniswapV2Router.addLiquidityETH{value: ethAmount}(
             address(this),
             tokenAmount,
             0, // slippage is unavoidable
@@ -1795,6 +2031,7 @@ contract SHIVA is ERC20, Ownable {
             address(0),
             block.timestamp
         );
+        require(liquidity > 0);
     }
 
     function swapAndSendDividends(uint256 tokens) private{
@@ -1823,8 +2060,236 @@ contract SHIVA is ERC20, Ownable {
         if(bnbblance <= amount) {
             amount = bnbblance;
         }
-        payable(toAddress).transfer(amount);
+        payable(toAddress).sendValue(amount);
         emit BNBWithdrawn(msg.sender, toAddress, amount);
+    }
+
+    // Copied and modified from YAM code:
+    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernanceStorage.sol
+    // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernance.sol
+    // Which is copied and modified from COMPOUND:
+    // https://github.com/compound-finance/compound-protocol/blob/master/contracts/Governance/Comp.sol
+
+    /// @dev A record of each accounts delegate
+    mapping (address => address) internal _delegates;
+
+    /// @notice A checkpoint for marking number of votes from a given block
+    struct Checkpoint {
+        uint32 fromBlock;
+        uint256 votes;
+    }
+
+    /// @notice A record of votes checkpoints for each account, by index
+    mapping (address => mapping (uint32 => Checkpoint)) public checkpoints;
+
+    /// @notice The number of checkpoints for each account
+    mapping (address => uint32) public numCheckpoints;
+
+    /// @notice The EIP-712 typehash for the contract's domain
+    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
+
+    /// @notice The EIP-712 typehash for the delegation struct used by the contract
+    bytes32 public constant DELEGATION_TYPEHASH = keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
+
+    /// @notice A record of states for signing / validating signatures
+    mapping (address => uint) public nonces;
+
+      /// @notice An event thats emitted when an account changes its delegate
+    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
+
+    /// @notice An event thats emitted when a delegate account's vote balance changes
+    event DelegateVotesChanged(address indexed delegate, uint previousBalance, uint newBalance);
+
+    /**
+     * @notice Delegate votes from `msg.sender` to `delegatee`
+     * @param delegator The address to get delegatee for
+     */
+    function delegates(address delegator)
+        external
+        view
+        returns (address)
+    {
+        return _delegates[delegator];
+    }
+
+   /**
+    * @notice Delegate votes from `msg.sender` to `delegatee`
+    * @param delegatee The address to delegate votes to
+    */
+    function delegate(address delegatee) external {
+        return _delegate(msg.sender, delegatee);
+    }
+
+    /**
+     * @notice Delegates votes from signatory to `delegatee`
+     * @param delegatee The address to delegate votes to
+     * @param nonce The contract state required to match the signature
+     * @param expiry The time at which to expire the signature
+     * @param v The recovery byte of the signature
+     * @param r Half of the ECDSA signature pair
+     * @param s Half of the ECDSA signature pair
+     */
+    function delegateBySig(
+        address delegatee,
+        uint nonce,
+        uint expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    )
+        external
+    {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                DOMAIN_TYPEHASH,
+                keccak256(bytes(name())),
+                getChainId(),
+                address(this)
+            )
+        );
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                DELEGATION_TYPEHASH,
+                delegatee,
+                nonce,
+                expiry
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                structHash
+            )
+        );
+
+        address signatory = ecrecover(digest, v, r, s);
+        require(signatory != address(0), "SHIVA::delegateBySig: invalid signature");
+        require(nonce == nonces[signatory]++, "SHIVA::delegateBySig: invalid nonce");
+        require(block.timestamp <= expiry, "SHIVA::delegateBySig: signature expired");
+        return _delegate(signatory, delegatee);
+    }
+
+    /**
+     * @notice Gets the current votes balance for `account`
+     * @param account The address to get votes balance
+     * @return The number of current votes for `account`
+     */
+    function getCurrentVotes(address account)
+        external
+        view
+        returns (uint256)
+    {
+        uint32 nCheckpoints = numCheckpoints[account];
+        return nCheckpoints > 0 ? checkpoints[account][nCheckpoints - 1].votes : 0;
+    }
+
+    /**
+     * @notice Determine the prior number of votes for an account as of a block number
+     * @dev Block number must be a finalized block or else this function will revert to prevent misinformation.
+     * @param account The address of the account to check
+     * @param blockNumber The block number to get the vote balance at
+     * @return The number of votes the account had as of the given block
+     */
+    function getPriorVotes(address account, uint blockNumber)
+        external
+        view
+        returns (uint256)
+    {
+        require(blockNumber < block.number, "LOVPT::getPriorVotes: not yet determined");
+
+        uint32 nCheckpoints = numCheckpoints[account];
+        if (nCheckpoints == 0) {
+            return 0;
+        }
+
+        // First check most recent balance
+        if (checkpoints[account][nCheckpoints - 1].fromBlock <= blockNumber) {
+            return checkpoints[account][nCheckpoints - 1].votes;
+        }
+
+        // Next check implicit zero balance
+        if (checkpoints[account][0].fromBlock > blockNumber) {
+            return 0;
+        }
+
+        uint32 lower = 0;
+        uint32 upper = nCheckpoints - 1;
+        while (upper > lower) {
+            uint32 center = upper - (upper - lower) / 2; // ceil, avoiding overflow
+            Checkpoint memory cp = checkpoints[account][center];
+            if (cp.fromBlock == blockNumber) {
+                return cp.votes;
+            } else if (cp.fromBlock < blockNumber) {
+                lower = center;
+            } else {
+                upper = center - 1;
+            }
+        }
+        return checkpoints[account][lower].votes;
+    }
+
+    function _delegate(address delegator, address delegatee) internal {
+        address currentDelegate = _delegates[delegator];
+        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying SHIVAs (not scaled);
+        _delegates[delegator] = delegatee;
+
+        emit DelegateChanged(delegator, currentDelegate, delegatee);
+
+        _moveDelegates(currentDelegate, delegatee, delegatorBalance);
+    }
+
+    function _moveDelegates(address srcRep, address dstRep, uint256 amount) internal {
+        if (srcRep != dstRep && amount > 0) {
+            if (srcRep != address(0)) {
+                // decrease old representative
+                uint32 srcRepNum = numCheckpoints[srcRep];
+                uint256 srcRepOld = srcRepNum > 0 ? checkpoints[srcRep][srcRepNum - 1].votes : 0;
+                uint256 srcRepNew = srcRepOld.sub(amount);
+                _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
+            }
+
+            if (dstRep != address(0)) {
+                // increase new representative
+                uint32 dstRepNum = numCheckpoints[dstRep];
+                uint256 dstRepOld = dstRepNum > 0 ? checkpoints[dstRep][dstRepNum - 1].votes : 0;
+                uint256 dstRepNew = dstRepOld.add(amount);
+                _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
+            }
+        }
+    }
+
+    function _writeCheckpoint(
+        address delegatee,
+        uint32 nCheckpoints,
+        uint256 oldVotes,
+        uint256 newVotes
+    )
+        internal
+    {
+        uint32 blockNumber = safe32(block.number, "SHIVA::_writeCheckpoint: block number exceeds 32 bits");
+
+        if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
+            checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
+        } else {
+            checkpoints[delegatee][nCheckpoints] = Checkpoint(blockNumber, newVotes);
+            numCheckpoints[delegatee] = nCheckpoints + 1;
+        }
+
+        emit DelegateVotesChanged(delegatee, oldVotes, newVotes);
+    }
+
+    function safe32(uint n, string memory errorMessage) internal pure returns (uint32) {
+        require(n < 2**32, errorMessage);
+        return uint32(n);
+    }
+
+    function getChainId() internal pure returns (uint) {
+        uint256 chainId;
+        assembly { chainId := chainid() }
+        return chainId;
     }
 }
 
