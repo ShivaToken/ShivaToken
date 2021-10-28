@@ -685,6 +685,69 @@ library IterableMapping {
 }
 
 
+// File: @openzeppelin/contracts/security/ReentrancyGuard.sol
+
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ */
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    constructor() public {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+
+        _;
+
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+}
+
+
+
 /* ERC20.sol */
 pragma solidity ^0.6.2;
 
@@ -712,7 +775,7 @@ pragma solidity ^0.6.2;
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20 is Context, IERC20, IERC20Metadata {
+contract ERC20 is Context, IERC20, IERC20Metadata, ReentrancyGuard {
     using SafeMath for uint256;
 
     mapping(address => uint256) private _balances;
@@ -792,7 +855,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount) public virtual override nonReentrant returns (bool) {
         _transfer(_msgSender(), recipient, amount);
         return true;
     }
@@ -1397,69 +1460,10 @@ library Address {
     }
 }
 
-// File: @openzeppelin/contracts/security/ReentrancyGuard.sol
 
-/**
- * @dev Contract module that helps prevent reentrant calls to a function.
- *
- * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
- * available, which can be applied to functions to make sure there are no nested
- * (reentrant) calls to them.
- *
- * Note that because there is a single `nonReentrant` guard, functions marked as
- * `nonReentrant` may not call one another. This can be worked around by making
- * those functions `private`, and then adding `external` `nonReentrant` entry
- * points to them.
- *
- * TIP: If you would like to learn more about reentrancy and alternative ways
- * to protect against it, check out our blog post
- * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
- */
-abstract contract ReentrancyGuard {
-    // Booleans are more expensive than uint256 or any type that takes up a full
-    // word because each write operation emits an extra SLOAD to first read the
-    // slot's contents, replace the bits taken up by the boolean, and then write
-    // back. This is the compiler's defense against contract upgrades and
-    // pointer aliasing, and it cannot be disabled.
-
-    // The values being non-zero value makes deployment a bit more expensive,
-    // but in exchange the refund on every call to nonReentrant will be lower in
-    // amount. Since refunds are capped to a percentage of the total
-    // transaction's gas, it is best to keep them low in cases like this one, to
-    // increase the likelihood of the full refund coming into effect.
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-
-    uint256 private _status;
-
-    constructor() public {
-        _status = _NOT_ENTERED;
-    }
-
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and make it call a
-     * `private` function that does the actual work.
-     */
-    modifier nonReentrant() {
-        // On the first call to nonReentrant, _notEntered will be true
-        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
-
-        // Any calls to nonReentrant after this point will fail
-        _status = _ENTERED;
-
-        _;
-
-        // By storing the original value once again, a refund is triggered (see
-        // https://eips.ethereum.org/EIPS/eip-2200)
-        _status = _NOT_ENTERED;
-    }
-}
 
 /* SHIVA.sol */
-contract SHIVA is ERC20, Ownable, ReentrancyGuard {
+contract SHIVA is ERC20, Ownable {
     using SafeMath for uint256;
     using Address for address payable;
 
@@ -1478,8 +1482,8 @@ contract SHIVA is ERC20, Ownable, ReentrancyGuard {
     address public constant BTCB = address(0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c); //BTCB
     //testnet: 0x6ce8dA28E2f864420840cF74474eFf5fD80E65B8
     //mainnet: 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c
-    uint256 public constant swapTokensAtAmount = 20000000 ether;
-    uint256 public constant BuyBackAtAmount = 1 ether;
+    uint256 public  swapTokensAtAmount = 20000000 ether;
+    uint256 public  BuyBackAtAmount = 0.05 ether;
 
     mapping(address => bool) private _excludedFromAntiWhale;
     mapping(address => bool) private _excludedLimitSwap;
@@ -1504,9 +1508,9 @@ contract SHIVA is ERC20, Ownable, ReentrancyGuard {
 	// limit swap enabled
     bool public limitSwap = true;
     // swap, liquify, dividend disabled
-    bool public swapAndLiquifyDividendEnabled = false;
+    bool public swapAndLiquifyDividendEnabled = true;
     // swap start block
-    uint256 swapStartblock = 99999999;
+    uint256 public swapStartblock = 99999999;
 	// Minimum time between 2 swap of an user (by the number of blocks)
 	uint256 public timeLimitSwap = 100;
     // Info of UserInfo.
@@ -1534,6 +1538,7 @@ contract SHIVA is ERC20, Ownable, ReentrancyGuard {
     event MarketingFeeUpdated(address indexed operator, uint256 oldMarketingfee, uint256 newBTCBRewardsfee);
     event ShivaTokensWithdrawn(address indexed operator, address indexed recipient, uint256 amount);
     event BNBWithdrawn(address indexed operator, address indexed recipient, uint256 amount);
+    event SwapTokensAtAmountUpdated(address indexed operator, uint256 newSwapAtAmount, uint256 newBuybackAtAmount);
 
     event ProcessedDividendTracker(
     	uint256 iterations,
@@ -1703,6 +1708,12 @@ contract SHIVA is ERC20, Ownable, ReentrancyGuard {
         require(totalFees <= 20, "SHIVA::setBTCBRewardsFee: Too high Fees");
         emit MarketingFeeUpdated(msg.sender, marketingFee, value);
         marketingFee = value;
+    }
+
+    function updateSwapTokensAtAmount(uint256 newSwapAtAmount, uint256 newBuyAtAmount) external onlyOwner {
+        swapTokensAtAmount = newSwapAtAmount;
+        BuyBackAtAmount = newBuyAtAmount;
+        emit SwapTokensAtAmountUpdated(msg.sender, swapTokensAtAmount, BuyBackAtAmount);
     }
 
     function setAutomatedMarketMakerPair(address pair, bool value) public onlyOwner {
